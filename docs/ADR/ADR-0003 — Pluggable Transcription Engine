@@ -1,0 +1,43 @@
+# ADR-0003 — Pluggable Transcription Engine
+
+Status: Accepted
+Date: 2026-06-05
+
+## Context
+
+Sapiens Note turns recordings into text. Speech recognition needs more compute
+than a small device has, so it runs off-device (see ADR-0004) — in the local web
+dashboard (`sapiens-web`). The question: hard-wire one transcription backend, or
+make it swappable between a local model and a cloud API?
+
+## Decision
+
+Use a **single small interface** for transcription with **swappable
+implementations**, chosen at runtime:
+
+```cpp
+struct ITranscriber {
+    TranscriptionResult transcribe(const std::string& wav_path);
+};
+```
+
+| Engine | Selector | Needs |
+|---|---|---|
+| **whisper.cpp** (local, offline) | `--engine whisper` *(default)* | a ggml model (`SAPIENS_WHISPER_MODEL`) |
+| **OpenAI Whisper API** (cloud) | `--engine openai` | `OPENAI_API_KEY` |
+| **fake** (demo/tests) | `--engine fake` | nothing — canned text |
+
+Each engine is a thin adapter producing the same `TranscriptionResult`. The
+result is written back through the core (`NoteService::apply_transcription`), so
+it appears in the simulators immediately.
+
+## Consequences
+
+Positive:
+- run fully offline (whisper.cpp) or fully cloud (OpenAI), your choice
+- swap or upgrade the engine without touching the rest of the app
+- the `fake` engine makes the round-trip testable with no model or key
+
+Negative:
+- two real engines to support
+- transcription quality is bounded by the chosen model, not the app

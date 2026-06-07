@@ -1,0 +1,8 @@
+build/
+build*/
+_deps/
+.git/
+.DS_Store
+**/.DS_Store
+*.o
+*.a

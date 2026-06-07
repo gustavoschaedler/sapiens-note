@@ -1,0 +1,32 @@
+# Build output
+/build/
+build/
+build*/
+_deps/
+*.o
+*.obj
+*.a
+*.lib
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+
+# Editors / OS
+.DS_Store
+**/.DS_Store
+.vscode/
+.idea/
+compile_commands.json
+
+# Render dumps / scratch output (the committed UI images live in assets/)
+/out/
+*.ppm
+*.wav
+
+# App data created at runtime (lives in $HOME/.sapiensnote-sim, not in the repo)
+*.sapiensnote-data/
+.sapiensnote-sim/

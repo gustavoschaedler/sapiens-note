@@ -1,0 +1,7 @@
+# Name,   Type, SubType, Offset,  Size
+nvs,      data, nvs,     ,        24K
+phy_init, data, phy,     ,        4K
+factory,  app,  factory, ,        2M
+# Note metadata DB + audio live on the microSD card (FAT32), not in flash.
+# A small spiffs/littlefs area can be added later for settings if needed.
+storage,  data, fat,     ,        512K

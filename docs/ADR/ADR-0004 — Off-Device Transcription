@@ -1,0 +1,33 @@
+# ADR-0004 — Off-Device Transcription
+
+Status: Accepted
+Date: 2026-06-05
+
+## Context
+
+The device Sapiens Note emulates is a small e-ink MCU (Waveshare ESP32-S3). Modern
+speech-recognition models (the Whisper family) need far more compute and memory
+than such an MCU can provide, so transcription cannot run on the device itself.
+This is the same conclusion the reference project (Pala Note) reached.
+
+## Decision
+
+**Capture is on-device; transcription is off-device.** A recording is stored
+locally as 16 kHz mono WAV (Whisper's native rate, so no resample is needed), and
+the **local web dashboard** (`sapiens-web`) transcribes it on demand through a
+pluggable engine — whisper.cpp locally or the OpenAI API in the cloud
+([ADR-0003](ADR-0003%20%E2%80%94%20Pluggable%20Transcription%20Engine)).
+
+The capture loop is fully offline ([ADR-0001](ADR-0001%20%E2%80%94%20Offline%20First));
+only the text output needs the engine.
+
+## Consequences
+
+Positive:
+- the recorder stays cheap, low-power, and simple
+- transcription quality is whatever engine you point it at (local or cloud)
+
+Negative:
+- a recording shows no transcript until you run it through the dashboard — the UI
+  shows a clear "pending" state until then
+- the local (whisper.cpp) path needs a downloaded model; the cloud path needs a key

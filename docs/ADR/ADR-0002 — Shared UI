@@ -1,0 +1,42 @@
+# ADR-0002 — Shared UI (one core, two shells)
+
+Status: Accepted
+Date: 2026-06-05
+
+## Context
+
+Maintaining two separate UIs (device and simulator) would guarantee they drift
+apart. We want the simulator to be a faithful stand-in for the device — same
+screens, same navigation, same behavior — so that most development and all
+"try it without hardware" usage happens on the simulator.
+
+## Decision
+
+There is **one shared C++ core** that both clients link, and the UI is built once
+with **LVGL 9**. Each client is a thin shell that supplies a **HAL** (Hardware
+Abstraction Layer) implementation:
+
+- **Firmware** shell → ESP-IDF HAL (e-paper panel, FT6336 touch, ES8311 audio,
+  microSD, Wi-Fi).
+- **Simulator** shell → desktop HAL (SDL2 window/framebuffer, mouse/touch, SDL
+  audio, filesystem, libcurl).
+
+The shared core contains: domain models, app state machines, navigation, the
+LVGL/Canvas screen code and the sync client. Platform code is restricted to HAL
+implementations. The shared/platform boundary is specified in
+[SHARED_CORE.md](../SHARED_CORE.md).
+
+To avoid the ambiguity the previous specs had (firmware described as simple
+layering, simulator described with full MVVM): **the MVVM/ViewModel layer lives in
+the shared core**, not in the simulator only. Both clients get it.
+
+## Consequences
+
+Positive:
+- less code, fewer bugs, the simulator can't silently diverge
+- fast iteration on a desktop before flashing hardware
+
+Negative:
+- the HAL abstraction adds indirection
+- the UI must respect the lowest common denominator: a 200×200 **monochrome**
+  e-ink panel with slow refresh ([HARDWARE.md](../HARDWARE.md))

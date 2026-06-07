@@ -1,0 +1,26 @@
+# Convenience wrappers around the Docker build. Nothing to install locally.
+#
+#   docker compose run --rm tests   # build image + run all test suites
+#   docker compose run --rm shot    # render the UI to ./out/ui.ppm
+#   docker compose run --rm sim-x11 # interactive window via XQuartz (macOS/Linux)
+#
+services:
+  tests:
+    build: .
+    image: sapiensnote
+    command: bash -lc "ctest --test-dir build --output-on-failure && ./build/simulator/sapiens-sim --headless"
+
+  # Renders the UI to a PPM on the host (open ./out/ui.ppm, or convert to PNG).
+  shot:
+    image: sapiensnote
+    volumes:
+      - ./out:/out
+    command: bash -lc "./build/simulator/sapiens-sim --shot /out/ui.ppm --scale 4"
+
+  # Interactive window through an X server (needs XQuartz on macOS; see BUILD.md).
+  # No microphone inside the container -> recording falls back to a silent clip.
+  sim-x11:
+    image: sapiensnote
+    environment:
+      - DISPLAY=host.docker.internal:0
+    command: ./build/simulator/sapiens-sim

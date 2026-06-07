@@ -1,0 +1,32 @@
+# ADR-0001 — Offline First
+
+Status: Accepted
+Date: 2026-06-05
+
+## Context
+
+SapiensNote is used where connectivity is limited or absent. The device may go days
+without internet. The desktop simulator must also run with no external
+dependencies. Capturing an idea must never fail because the network is down.
+
+## Decision
+
+All critical functionality works offline. This includes:
+
+- recording (capture)
+- playback
+- note and tag management
+- local storage (SQLite + filesystem)
+
+Transcription happens off-device, on demand, in the local web dashboard
+(see ADR-0004). Its absence never blocks capture.
+
+## Consequences
+
+Positive:
+- high availability and a fast, reliable UX
+- independence from the cloud for the core loop
+
+Negative:
+- merging changes across clients needs delta exchange + last-writer-wins
+  (handled by the core's sync client)
