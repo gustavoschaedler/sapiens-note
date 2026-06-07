@@ -1,8 +1,7 @@
 # HARDWARE
 
 Target board: **Waveshare ESP32-S3 1.54" e-Paper Development Board (touch variant)**.
-Product: <https://www.waveshare.com/esp32-s3-epaper-1.54.htm> ·
-Wiki: <https://www.waveshare.com/wiki/ESP32-S3-ePaper-1.54>
+Wiki: <https://docs.waveshare.com/ESP32-S3-ePaper-1.54?variant=ESP32-S3-Touch-ePaper-1.54>
 
 This is the single hardware target for v1 firmware. The simulator emulates this
 board's constraints (see [SIMULATOR_SPEC.md](SIMULATOR_SPEC.md)).

@@ -210,6 +210,6 @@ Full design lives in **[docs/](docs/)** — start with
 ---
 
 <p align="center"><sub>
-Hardware: <a href="https://www.waveshare.com/wiki/ESP32-S3-ePaper-1.54">Waveshare ESP32-S3-ePaper-1.54</a> ·
+Hardware: <a href="https://docs.waveshare.com/ESP32-S3-ePaper-1.54?variant=ESP32-S3-Touch-ePaper-1.54">Waveshare ESP32-S3-Touch-ePaper-1.54</a> ·
 200×200 monochrome e-paper · ES8311 mic + speaker · Wi-Fi/BLE · microSD · Li-battery.
 </sub></p>
