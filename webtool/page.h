@@ -24,10 +24,10 @@ inline const char* kIndexHtml = R"HTML(<!doctype html>
   header h1 { margin:0; font-size:26px; letter-spacing:.5px; line-height:1.05; }
   header .sub { color:var(--muted); font-size:13px; }
   #ver { font-variant-numeric:tabular-nums; }
-  main { max-width:820px; margin:0 auto; padding:16px 16px 60px; }
+  main { max-width:980px; margin:0 auto; padding:16px 16px 60px; }
   .empty { text-align:center; color:var(--muted); padding:60px 0; }
-  .row { border:2px solid var(--ink); border-radius:12px; padding:12px 14px;
-         margin:14px 0; box-shadow:3px 4px 0 var(--shadow); background:var(--paper); }
+  .row { border:2px solid var(--ink); border-radius:12px; padding:16px 18px;
+         margin:16px 0; box-shadow:3px 4px 0 var(--shadow); background:var(--paper); }
   .row .top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .num { font-variant-numeric:tabular-nums; font-weight:700; }
   .title { font-weight:700; flex:1 1 auto; min-width:120px;
@@ -51,6 +51,7 @@ inline const char* kIndexHtml = R"HTML(<!doctype html>
   .tx.open { display:block; }
   .tx pre { white-space:pre-wrap; word-wrap:break-word; margin:0 0 8px;
             font-family: ui-monospace, Menlo, Consolas, monospace; font-size:13px; }
+  .tx a.btn { display:block; width:max-content; margin-left:auto; } /* Download .txt → right-aligned */
   /* now-playing tile: invert the title strip (e-ink flash) + deeper shadow */
   .row.playing { box-shadow:5px 6px 0 var(--ink); }
   .row.playing .top { background:var(--ink); color:var(--paper);
@@ -83,8 +84,10 @@ inline const char* kIndexHtml = R"HTML(<!doctype html>
   .prog .bar { width:35%; height:100%; background:var(--ink); will-change:margin-left;
                animation: prog 1.1s ease-in-out infinite; }
   @keyframes prog { 0% { margin-left:-35%; } 100% { margin-left:100%; } }
-  .pager { display:none; align-items:center; justify-content:center; gap:14px; margin:20px 0; }
-  .pager #pginfo { font-variant-numeric:tabular-nums; }
+  .pager { display:none; align-items:center; justify-content:center; gap:10px; margin:20px 0; flex-wrap:wrap; }
+  .pager .nums { display:flex; gap:8px; flex-wrap:wrap; }
+  .btn.pg { min-width:40px; text-align:center; font-variant-numeric:tabular-nums; }
+  .btn.pg.active { background:var(--ink); color:var(--paper); } /* current page */
 </style>
 </head>
 <body>
@@ -103,7 +106,7 @@ inline const char* kIndexHtml = R"HTML(<!doctype html>
   <div id="list"><div class="empty">Loading…</div></div>
   <div id="pager" class="pager">
     <button class="btn" id="prev">‹ Prev</button>
-    <span id="pginfo"></span>
+    <span class="nums" id="nums"></span>
     <button class="btn" id="next">Next ›</button>
   </div>
 </main>
@@ -152,7 +155,7 @@ const ICONS = {
 const rows = new Map();      // id -> row element (built once, reused)
 const open = new Set();      // ids whose transcript panel is expanded
 const busy = new Set();      // ids currently transcribing
-const PAGE_SIZE = 10;        // recordings per page
+const PAGE_SIZE = 5;         // recordings per page
 let page = 0;                // current page (0-based)
 
 // Poll + reconcile: only touch what changed so the <audio> element is never
@@ -189,7 +192,15 @@ function renderPager(pages, total) {
   const p = $('#pager');
   if (pages <= 1) { p.style.display = 'none'; return; }
   p.style.display = 'flex';
-  $('#pginfo').textContent = `Page ${page + 1} of ${pages} · ${total} recordings`;
+  const nums = $('#nums'); nums.innerHTML = '';
+  for (let i = 0; i < pages; i++) {                  // numbered page buttons
+    const b = document.createElement('button');
+    b.className = 'btn pg' + (i === page ? ' active' : '');
+    b.textContent = i + 1;
+    b.setAttribute('aria-label', 'Page ' + (i + 1));
+    b.onclick = () => { if (i !== page) { page = i; load(); window.scrollTo(0, 0); } };
+    nums.appendChild(b);
+  }
   $('#prev').disabled = page <= 0;
   $('#next').disabled = page >= pages - 1;
 }
