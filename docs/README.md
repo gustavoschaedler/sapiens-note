@@ -10,6 +10,9 @@ documents how the app is built.
 
 ## What's here
 
+- **The device firmware** — a working ESP-IDF build for the ESP32-S3 e-paper board
+  that reuses the same core + renderer (audio, SD-backed notes, RTC, Wi-Fi captive
+  portal, an on-device web dashboard, deep sleep, and a USB disk mode).
 - **Two desktop simulators** that share one C++ core and behave identically: a
   1-bit `Canvas` build (`sapiens-sim`, SDL2) and a real-widget LVGL 9 build
   (`sapiens-sim-lvgl`).
@@ -25,7 +28,9 @@ documents how the app is built.
 - [SHARED_CORE.md](SHARED_CORE.md) — the C++ core + HAL shared by every client.
 - [SIMULATOR_SPEC.md](SIMULATOR_SPEC.md) — the desktop simulators + web dashboard.
 - [UI_UX.md](UI_UX.md) — screens and interaction flows.
-- [HARDWARE.md](HARDWARE.md) — the e-ink device the simulators emulate.
+- [HARDWARE.md](HARDWARE.md) — the e-ink device: confirmed pin map + peripherals.
+- [../firmware/README.md](../firmware/README.md) — the ESP-IDF firmware: container
+  build + host flash, the HAL layout, and on-device behaviour.
 - [GLOSSARY.md](GLOSSARY.md) — shared vocabulary.
 - [ADR/](ADR/) — the Architecture Decision Records behind the design.
 

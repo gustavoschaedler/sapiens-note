@@ -1,5 +1,5 @@
 #pragma once
-// IPower for ESP-IDF: battery via ADC, deep sleep via esp_sleep.
+// IPower for ESP-IDF: battery via ADC1_CH3 (GPIO4, 2:1 divider), deep sleep.
 #include "esp_sleep.h"
 #include "sapiens/Hal.h"
 
@@ -7,21 +7,17 @@ namespace sapiens::fw {
 
 class EspPower final : public sapiens::IPower {
 public:
-    int battery_percent() const override {
-        // TODO(board): read BAT_ADC, convert via the divider ratio, map V->%.
-        return -1; // unknown until wired
-    }
+    // Battery charge 0..100, or -1 if it can't be read. Reads the ADC at most once
+    // every ~30 s and caches the result (the header polls this every repaint).
+    int battery_percent() const override;
+
     bool on_external_power() const override {
         // TODO(board): detect USB VBUS if a sense line is available.
         return false;
     }
 
-    // Enter deep sleep; wake on touch INT / PWR button / RTC alarm.
-    static void deep_sleep(uint64_t wake_after_us = 0) {
-        // TODO(board): esp_sleep_enable_ext1_wakeup(TOUCH/PWR mask, ...);
-        if (wake_after_us) esp_sleep_enable_timer_wakeup(wake_after_us);
-        esp_deep_sleep_start();
-    }
+    // Enter deep sleep; wakes when either nav button (GPIO0/GPIO18) is pressed.
+    static void deep_sleep(uint64_t wake_after_us = 0);
 };
 
 } // namespace sapiens::fw

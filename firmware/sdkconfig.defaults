@@ -12,6 +12,11 @@ CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
 
+# Main task stack: the big 40 KB Canvas framebuffer is now static (.bss), so the
+# stack only needs nvs_flash_init + the C++ object graph + render call depth.
+# 8 KB is a safe headroom over the 3.5 KB default for this C++ app.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
 # C++: exceptions/RTTI on (the core uses std::function, std::optional, etc.)
 CONFIG_COMPILER_CXX_EXCEPTIONS=y
 CONFIG_COMPILER_CXX_RTTI=y
@@ -21,3 +26,11 @@ CONFIG_FREERTOS_HZ=1000
 
 # Log level
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# FATFS: long filenames (the notes dir "sapiensnote" and "rec-<ts>.wav" files
+# exceed the 8.3 default, so directory/file creation fails without this).
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
+
+# USB mass-storage "disk mode" (TinyUSB).
+CONFIG_TINYUSB_MSC_ENABLED=y

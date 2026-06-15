@@ -2,132 +2,103 @@
 
 Screens and interaction flows, shared by the device and the simulators
 ([SHARED_CORE.md](SHARED_CORE.md)). Designed for a **200×200, 1-bit monochrome
-e-ink panel** with capacitive touch and two physical buttons (PWR, BOOT).
+e-ink panel** with capacitive touch **and two physical buttons** (top = BOOT,
+bottom = PWR).
 
 ---
 
 ## Design constraints
 
-- **Monochrome only.** Use black/white, borders, and bold type for hierarchy —
-  never color or grayscale shading.
+- **Monochrome only.** Black/white, borders, and bold type for hierarchy — no
+  colour or grayscale.
 - **Small canvas.** 200×200 px. One primary action per screen; large touch targets
-  (≥ 44 px). Short labels.
-- **Slow refresh.** Prefer partial refresh; avoid frequent full repaints
-  (ghosting). The on-tap **invert** flash mimics the e-ink redraw and gives
-  immediate touch feedback.
-- **Glanceable.** The device is meant to be used in seconds, then pocketed.
+  (≥ 44 px).
+- **Slow refresh.** Partial refresh for updates; a full refresh (black↔white flash)
+  on screen changes and occasionally on animated screens to clear ghosting.
+- **Glanceable.** Used in seconds, then pocketed.
 
 ---
 
-## Navigation map
+## Navigation — touch + two buttons
+
+Every screen can be driven by **touch** or by the **two physical buttons**:
+
+| Button | 1 click | 2 clicks | Hold |
+|---|---|---|---|
+| **Top** (BOOT) | focus next item | focus previous item | **start recording (~3 s)** |
+| **Bottom** (PWR) | **select** focused item | **back** | — |
+
+A **focus ring** highlights the current item for button users; touch taps work in
+parallel. There are **no on-screen Back buttons** — back is the bottom button
+(double-click). The shared header (brand + battery %) is the same on every screen.
 
 ```text
-┌────────────────┐
-│     Splash     │   animated logo (~4 s)
-└────────────────┘
-         │
-         ▼
-┌────────────────┐
-│   Home  menu   │   2×2 menu
-└────────────────┘
-         │   Sync · Tags · Settings open their own screens
-         ▼
-┌────────────────┐        ┌────────────────┐
-│   Note List    │──REC──►│   Recording    │
-└────────────────┘        └────────────────┘
-         │
-         ▼
-┌────────────────┐
-│  Note Detail   │   full-screen transcript · tap to pause
-└────────────────┘
-         │
-         ▼  tap Play
-┌────────────────┐
-│     Player     │
-└────────────────┘
+Splash → Home ─┬─ Notes → Note list ─REC/hold─► Recording ─► (note created)
+               │                  └─ tap row ─► Note detail ─► Player
+               ├─ Sync (Wi-Fi / web dashboard)
+               ├─ Tags
+               └─ Settings
 ```
-
-Every screen below the Home menu shows a **Menu**/back control under the battery
-to return one level up.
 
 ---
 
 ## Screens
 
-### 1. Splash
-Animated logo — the brand name writes in letter by letter, then blinks — for about
-four seconds, then auto-advances to the Home menu.
+### Splash
+Animated logo writing in letter by letter, ~4 s, then auto-advances to Home.
 
-### 2. Home (menu)
-A 2×2 grid of large 3-D buttons: **Notes**, **Sync**, **Tags**, **Settings**.
-Tapping a button flashes an e-ink colour invert, then opens that screen.
+### Home (menu)
+2×2 grid of large buttons: **Notes**, **Sync**, **Tags**, **Settings**.
 
-### 3. Note List
-- Scrollable, paginated list of notes (newest first). Each row shows a sequence
-  number, the title (marquee-scrolled if long), a ● dot if it has audio not yet
-  transcribed, and a ★ if favorite.
-- Top: battery icon with the percentage below it; a **Menu** button returns to Home.
-- Bottom: large **REC** button, plus page up/down controls when there is more than
-  one page.
-- Empty state: "No notes yet — tap REC to capture one."
+### Note list
+- Header: **Sapiens Note** + battery %. Three large rows/page, newest first; long
+  titles **marquee-scroll**. Per-row markers: ● pending transcript, ◆ favorite,
+  ▶ has audio.
+- Bottom: large **REC** + page ▲/▼ when paged.
+- **Footer (centered):** total notes + page (e.g. `12 notes · page 1/4`).
+- Empty state: "No notes yet — hold the top button to record."
 
-### 4. Recording
-- Big timer (mm:ss), a live input-level meter, and a large **STOP** button.
-- Visual + audible cue on start/stop.
-- Audio is written to disk continuously (crash-safe).
-- Stop → create the Note locally → return to the Note List with the new note on
-  top, marked "pending" (no transcript yet).
+### Recording
+- A blinking **● REC** pill, a big **mm:ss** timer, the hint "Tap STOP to finish",
+  and a large **STOP** button. Audio streams to the SD continuously.
 
-### 5. Note Detail
-- Title (marquee-scrolled if long).
-- When a transcript exists, the full text fills the screen and **auto-scrolls
-  infinitely** at the configured scroll speed (it exits the top and re-enters from
-  the bottom, no bounce). **Tap the text to pause/resume** the scroll.
-- When no transcript exists yet, a "Pending transcription — appears after you run
-  it through the web dashboard" placeholder is shown.
-- Controls: **Play** audio, **Delete** (with a confirm dialog), and back to the list.
+### Note detail
+- Title (marquee). With a transcript: the full text fills the screen and
+  **auto-scrolls** at the configured speed (tap to pause/resume). Without one:
+  "Pending transcription — appears after you run it from the web dashboard."
+- Bottom: **Play** and **Delete** fill the width (no Back).
 
-### 6. Player
-- Title, playback state, a progress bar, and play/pause/stop controls with
-  elapsed/total time. Back returns to the note.
+### Player
+- Title, state, progress bar, elapsed/total, and large **Play/Pause** + **Stop**.
 
-### 7. Sync
-- A simple status screen reachable from the Home menu, with a back control. The
-  shared **sync client** keeps the local DB consistent across the two simulators
-  (last-writer-wins); see [SHARED_CORE.md](SHARED_CORE.md).
+### Sync (Wi-Fi / web dashboard)
+- Explains that **Connect** brings up Wi-Fi to open the web dashboard and sync the
+  clock. Connecting shows a captive-portal AP (`SapiensNote-XXXX`), then "Connected
+  — open http://<ip>". The dashboard serves recordings + on-device transcription.
 
-### 8. Tags
-- List of existing tags (or "No tags yet"), with a back control. Tags label notes
-  for organization/filtering on the Note List.
+### Tags
+- List of tags (or "No tags yet").
 
-### 9. Settings
-- **Scroll speed** — stepper controlling the transcript auto-scroll speed.
-- **Name format** — stepper choosing how new notes are titled.
-- Back control returns to Home.
+### Settings (touch steppers; also editable in the dashboard)
+- **Text scroll** — transcript auto-scroll speed.
+- **Name format** — date-time format for new note titles.
+- **Sleep** — deep-sleep idle timeout (`Off` = never).
+- (Hold-to-record seconds and the **Disk mode** toggle live in the dashboard.)
 
----
-
-## Input model
-
-| Gesture / button | Action |
-|---|---|
-| Tap | activate control / open item (flashes invert) |
-| Tap transcript | pause / resume auto-scroll |
-| Swipe up/down | scroll lists |
-| PWR short | wake / sleep |
-| PWR long | quick-record from anywhere |
-| BOOT | reserved (developer / firmware) |
-
-On the simulators, mouse click = tap and keyboard shortcuts mirror the buttons
-(documented in [SIMULATOR_SPEC.md](SIMULATOR_SPEC.md)).
+### Disk mode (USB drive)
+When the Settings **Disk mode** toggle is on, the device reboots into a USB
+mass-storage drive (the SD with `.wav` + `.txt`). A full-screen page says "hold the
+top button to exit".
 
 ---
 
 ## States surfaced in the UI
 
-- **Note processing**: pending → transcribed (the ● dot clears when the transcript
-  is written back from the web dashboard).
-- **Battery**: level + low-battery warning.
-- **Recording**: a clearly distinct full-screen state so it's never ambiguous
-  whether the mic is live.
-- **Scroll**: running / paused on the Note Detail transcript.
+- **Note processing:** pending → transcribed (the ● clears once a transcript
+  exists; transcription runs on-device via the dashboard or off-device).
+- **Battery:** percentage in every header; low battery → red LED blinks (when wired).
+- **Recording:** an unmistakable full-screen state.
+- **Scroll:** running / paused on the transcript.
+
+On the desktop simulators, mouse click = tap; the device firmware adds the
+two-button model and a focus cursor.

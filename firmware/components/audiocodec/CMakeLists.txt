@@ -1,0 +1,40 @@
+# Vendored audio codec stack from the Pala Note reference firmware:
+# esp_codec_dev + ES8311/ES7210 drivers + codec_board + audio_bsp.
+# Pure ESP-IDF (no Arduino). Pin map comes from board "S3_ePaper_1_54".
+idf_component_register(
+    SRCS
+        "audio/audio_bsp.c"
+        "codec_board/cfg_parse.c"
+        "codec_board/codec_board.c"
+        "codec_board/codec_init.c"
+        "codec_board/dummy_codec.c"
+        "esp_codec_dev/esp_codec_dev.c"
+        "esp_codec_dev/esp_codec_dev_if.c"
+        "esp_codec_dev/esp_codec_dev_vol.c"
+        "esp_codec_dev/audio_codec_sw_vol.c"
+        "esp_codec_dev/platform/audio_codec_ctrl_i2c.c"
+        "esp_codec_dev/platform/audio_codec_data_i2s.c"
+        "esp_codec_dev/platform/audio_codec_gpio.c"
+        "esp_codec_dev/platform/esp_codec_dev_os.c"
+        "esp_codec_dev/device/es8311/es8311.c"
+        "esp_codec_dev/device/es7210/es7210.c"
+    INCLUDE_DIRS
+        "audio"
+        "codec_board"
+        "esp_codec_dev/include"
+        "esp_codec_dev/interface"
+    PRIV_INCLUDE_DIRS
+        "esp_codec_dev"
+        "esp_codec_dev/device/include"
+        "esp_codec_dev/device/priv_include"
+    REQUIRES
+        driver
+        esp_driver_i2c
+        esp_driver_i2s
+        esp_driver_gpio
+        esp_driver_sdmmc
+        sdmmc
+        fatfs
+        esp_hw_support
+        esp_timer
+)

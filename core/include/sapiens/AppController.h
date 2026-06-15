@@ -77,8 +77,8 @@ public:
     std::string name_format_preview() const;       // current format applied to "now"
     std::string name_format_example(int i) const;  // format i applied to "now"
 
-    // List pagination (fixed 5 notes per page).
-    int page_size() const { return 5; }
+    // List pagination (fixed 3 notes per page — big rows on the e-paper).
+    int page_size() const { return 3; }
     int total_notes() const { return static_cast<int>(visible_.size()); }
     int page_count() const;               // >= 1
     int list_page() const { return list_page_; }      // 0-based

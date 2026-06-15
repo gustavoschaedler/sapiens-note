@@ -75,7 +75,9 @@ public:
 
 // --- IInput -----------------------------------------------------------------
 enum class InputKind { Tap, LongPress, SwipeUp, SwipeDown, SwipeLeft, Back,
-                       ButtonRecord, ButtonPower, Quit };
+                       ButtonRecord, ButtonPower, Quit,
+                       // physical 2-button nav: cycle focus (next/prev) / activate
+                       FocusNext, FocusPrev, FocusSelect };
 
 struct InputEvent {
     InputKind kind{InputKind::Tap};

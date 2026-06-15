@@ -10,6 +10,7 @@ public:
     // TODO(board): choose SDMMC vs SPI and set the correct pins (see Pins.h).
     static bool mount_sd(const std::string& mount_point = "/sdcard");
     static void unmount_sd();
+    static void* card(); // sdmmc_card_t* of the mounted card (for USB MSC), or null
 
     static constexpr const char* kRoot = "/sdcard/sapiensnote";
     static constexpr const char* kAudioDir = "/sdcard/sapiensnote/audio";

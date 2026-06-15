@@ -21,14 +21,14 @@
 
 ---
 
-Sapiens Note is inspired by [Pala Note](https://circuitdigest.com/news/pala-note-a-pocket-sized-ai-voice-note-device)
-and built on the **Waveshare ESP32-S3 1.54" e-Paper (touch)** board. It ships as
+Sapiens Note runs on an **ESP32-S3 + 1.54" 200×200 e-paper (touch)** board
+(`S3_ePaper_1_54`, SSD1681). It ships as
 **one experience in several forms that all share a single C++ core**, so the
 device, the desktop simulators, and the firmware behave identically:
 
 | | What it is |
 |---|---|
-| 🎛️ **Device** | The physical e-ink gadget you carry (ESP-IDF firmware). |
+| 🎛️ **Device** | The physical e-ink gadget you carry — working ESP-IDF firmware (audio, Wi-Fi, on-device dashboard, RTC, sleep, disk mode). |
 | 🖥️ **Simulator** | A pixel-accurate desktop app — *no hardware required*. |
 | 🧩 **LVGL Simulator** | The same UI rebuilt with real LVGL 9 widgets. |
 | 🌐 **Web dashboard** | A local e-ink-styled page to play, download & transcribe. |
@@ -59,13 +59,25 @@ color-invert** flash on tap — the desktop simulator mirrors the real panel.
 
 - 🎙️ **One-tap capture** — record 16 kHz mono audio; stored locally first.
 - ▶️ **Built-in player** — play / pause / stop with a progress bar.
-- 🗂️ **Recordings list** — per-row counter (`0001…`), live battery icon, **5-per-page** pagination, marquee for long titles.
+- 🗂️ **Recordings list** — live battery %, marquee for long titles, paginated (the
+  device shows **3 big rows/page**; the desktop sims a few more), centred footer count.
 - 📝 **Full transcript view** — fills the screen and **auto-scrolls infinitely** (exits the top, re-enters from the bottom) at the speed set in Settings; **tap to pause/resume**.
 - 🏠 **Home menu** — Notes · Sync · Tags · Settings, with the e-ink invert effect on tap.
 - ⏱️ **Splash animation** — the name types out letter-by-letter, then blinks (4 s).
-- ⚙️ **Settings** — scroll speed and 5 date-time name formats.
+- ⚙️ **Settings** — text-scroll speed and date-time name formats.
 - 🗑️ **Delete with confirmation** · ⭐ favorites · 🏷️ tags.
 - 🔌 **Offline-first** — capture never needs the network.
+
+**On the device only** (ESP32-S3 firmware — see [firmware/README.md](firmware/README.md))
+
+- 🔘 **Touch + two physical buttons** — top: next / prev / hold-to-record;
+  bottom: select / back. Focus ring for button-only use; no on-screen Back.
+- 💾 **SD-backed notes** — recordings + `notes.json` survive reboot; orphan WAVs reconciled at boot.
+- 🕒 **Real-time clock** (PCF85063) — real timestamps; Wi-Fi SNTP writes the time back.
+- 📶 **On-device Wi-Fi + web dashboard** — captive-portal provisioning, then serves
+  `sapiens-web` on the device with **on-device transcription** (OpenAI-compatible).
+- 🔋 **Battery gauge** in every header; 💤 **deep sleep** on idle (button-wake, never on USB).
+- 🔌 **USB disk mode** — reboot into a USB drive exposing the SD (`.wav` + `.txt`).
 
 **On the web dashboard (`sapiens-web`)** — reads the *same* local database
 
@@ -180,7 +192,7 @@ storage/         SQLite-backed repository (sapiensstore)
 simulator/       SDL2 desktop app — 1-bit Canvas + baked AA fonts + Renderer + SdlAudio
 simulator_lvgl/  the same UI on LVGL 9 widgets (opt-in: -DSAPIENS_WITH_LVGL=ON)
 webtool/         sapiens-web — local e-ink dashboard + pluggable transcribers (opt-in)
-firmware/        ESP-IDF project (scaffold) reusing the core + renderer
+firmware/        ESP-IDF project (working on ESP32-S3) reusing the core + renderer
 cli/             headless demo that drives the core end-to-end
 tests/           CTest suites (core, sqlite, sync)
 tools/           genfont.cpp — bakes a TTF into an anti-aliased C++ font header
@@ -210,6 +222,6 @@ Full design lives in **[docs/](docs/)** — start with
 ---
 
 <p align="center"><sub>
-Hardware: <a href="https://docs.waveshare.com/ESP32-S3-ePaper-1.54?variant=ESP32-S3-Touch-ePaper-1.54">Waveshare ESP32-S3-Touch-ePaper-1.54</a> ·
-200×200 monochrome e-paper · ES8311 mic + speaker · Wi-Fi/BLE · microSD · Li-battery.
+Hardware: ESP32-S3 + 1.54" e-paper board (<code>S3_ePaper_1_54</code>, SSD1681) ·
+200×200 monochrome e-paper · FT6336 touch · ES8311 mic + speaker · Wi-Fi · microSD · Li-battery.
 </sub></p>

@@ -63,7 +63,8 @@ inline const char* kIndexHtml = R"HTML(<!doctype html>
               display:none; align-items:center; justify-content:center; }
   .modal-bg.open { display:flex; }
   .modal { background:var(--paper); border:3px solid var(--ink); border-radius:14px;
-           box-shadow:5px 6px 0 var(--shadow); padding:18px 20px; width:90%; max-width:360px; }
+           box-shadow:5px 6px 0 var(--shadow); padding:18px 20px; width:90%; max-width:360px;
+           max-height:88vh; overflow:auto; }
   .modal h2 { margin:0 0 6px; }
   .modal .mtitle { font-weight:700; margin:6px 0; overflow:hidden;
                    text-overflow:ellipsis; white-space:nowrap; }
@@ -72,7 +73,34 @@ inline const char* kIndexHtml = R"HTML(<!doctype html>
                font-family: ui-monospace, Menlo, Consolas, monospace; font-size:13px;
                background:#f2f2f2; border:1px solid var(--ink); border-radius:6px;
                padding:8px; max-height:160px; overflow:auto; }
-  .modal .hint { color:var(--muted); font-size:13px; margin:6px 0 0; }
+  .modal .hint { color:var(--muted); font-size:13px; margin:6px 0 0;
+                 overflow-wrap:anywhere; word-break:break-word; }
+  .modal code { overflow-wrap:anywhere; word-break:break-all; }
+  .modal .now { font-size:13px; margin:4px 0 10px; padding:8px 10px; border-radius:8px;
+                background:#f2f2f2; border:1px solid var(--line); overflow-wrap:anywhere; }
+  .modal label { display:block; font-size:13px; color:var(--muted); margin:10px 0 3px; }
+  .modal input[type=text], .modal input[type=password], .modal input[type=number],
+  .modal select {
+                 width:100%; box-sizing:border-box; padding:11px; border:2px solid var(--ink);
+                 border-radius:8px; font-size:15px; background:var(--paper); color:var(--ink); }
+  .mbtns .btn svg { vertical-align:-3px; margin-right:4px; }
+  .spin { display:inline-block; width:16px; height:16px; vertical-align:-3px;
+          border:3px solid var(--line); border-top-color:var(--ink); border-radius:50%;
+          animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #hdrspin { display:none; margin-left:8px; }
+  #hdrspin.on { display:inline-block; }
+  .title { cursor:pointer; } .title:hover { text-decoration:underline; }
+  .modal .sec { margin-top:14px; padding-top:10px; border-top:1px solid var(--line);
+                font-weight:700; font-size:14px; }
+  .row2 { display:flex; gap:10px; } .row2 > div { flex:1; }
+  .seg { display:flex; gap:8px; margin:8px 0 2px; }
+  .seg .opt { flex:1; display:flex; align-items:center; gap:8px; cursor:pointer;
+              border:2px solid var(--ink); border-radius:8px; padding:10px; font-size:14px;
+              color:var(--ink); margin:0; }
+  .seg .opt input { width:auto; accent-color:var(--ink); }
+  .modal .mbtns { flex-wrap:wrap; }
+  .mbtns .grow { margin-right:auto; } /* push a button to the left edge of the row */
   /* sound spectrum shown in the playing tile */
   .spec { vertical-align:middle; border:2px solid var(--ink); border-radius:8px;
           background:var(--paper); display:none; margin-left:auto; } /* flush right */
@@ -100,7 +128,11 @@ inline const char* kIndexHtml = R"HTML(<!doctype html>
         · <span id="ver">…</span></div>
     </div>
   </div>
-  <span class="sub" id="sub">recordings</span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="sub" id="sub">recordings</span>
+    <span id="hdrspin" class="spin" title="Reading device…"></span>
+    <button class="btn" id="cfgbtn" title="Settings">Settings</button>
+  </div>
 </header>
 <main>
   <div id="list"><div class="empty">Loading…</div></div>
@@ -140,6 +172,68 @@ inline const char* kIndexHtml = R"HTML(<!doctype html>
     </div>
   </div>
 </div>
+<div id="cfgmodal" class="modal-bg">
+  <div class="modal">
+    <h2>Settings</h2>
+    <div class="sec" style="border-top:0;margin-top:0;padding-top:0">Transcription</div>
+    <div class="now cfgnow">Loading…</div>
+    <div class="seg">
+      <label class="opt"><input type="radio" name="prov" value="openai" id="provoa">OpenAI</label>
+      <label class="opt"><input type="radio" name="prov" value="local" id="provlocal">Local server</label>
+    </div>
+    <div id="urlrow">
+      <label for="cfgurl">Local server URL</label>
+      <input id="cfgurl" type="text" autocomplete="off"
+             placeholder="http://192.168.1.x:PORT/v1/audio/transcriptions">
+    </div>
+    <label id="keylbl" for="cfgkey">OpenAI API key</label>
+    <input id="cfgkey" type="password" autocomplete="off" placeholder="API key">
+    <p class="hint cfghint"></p>
+    <div class="sec">Device</div>
+    <div class="row2">
+      <div>
+        <label for="cfgsleep">Sleep after (s, 0 = never)</label>
+        <input id="cfgsleep" type="number" min="0" max="3600" inputmode="numeric">
+      </div>
+      <div>
+        <label for="cfghold">Hold to record (s)</label>
+        <input id="cfghold" type="number" min="1" max="10" inputmode="numeric">
+      </div>
+    </div>
+    <label for="cfgscroll">Text scroll speed</label>
+    <input id="cfgscroll" type="number" min="1" inputmode="numeric">
+    <label for="cfgname">Name format</label>
+    <select id="cfgname"></select>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:12px">
+      <input id="cfgdisk" type="checkbox" style="width:auto"> Disk mode (show as a USB drive)
+    </label>
+    <p class="hint">Enabling reboots the device into USB-drive mode (recordings + .txt
+       on your PC). The serial/web are off while in disk mode — hold the TOP button to exit.</p>
+    <div class="mbtns" style="justify-content:space-between">
+      <button class="btn csave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Save</button>
+      <button class="btn cclear"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg>Remove</button>
+      <button class="btn ccancel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>Cancel</button>
+    </div>
+  </div>
+</div>
+<div id="renamemodal" class="modal-bg">
+  <div class="modal">
+    <h2>Rename recording</h2>
+    <label for="rnname">Name (max 100 chars)</label>
+    <input id="rnname" type="text" maxlength="100" autocomplete="off" placeholder="recording name">
+    <p class="hint">The .wav file is renamed to
+       <code>rec-YYYYMMDD-HHMMSS-name.wav</code> on the SD card.</p>
+    <div class="mbtns" style="justify-content:space-between">
+      <button class="btn rnsave"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Save</button>
+      <button class="btn rncancel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>Cancel</button>
+    </div>
+  </div>
+</div>
 <script>
 const $ = (s, r=document) => r.querySelector(s);
 const fmtSize = (b) => { if (!b) return ''; const u=['B','KB','MB','GB']; let i=0,v=b;
@@ -161,6 +255,8 @@ let page = 0;                // current page (0-based)
 // Poll + reconcile: only touch what changed so the <audio> element is never
 // recreated (playback keeps going) and open transcript panels stay put.
 async function load() {
+  const spin = $('#hdrspin'); spin.classList.add('on'); // reading the device
+  try {
   let notes = [];
   try { notes = await (await fetch('/api/notes')).json(); }
   catch (e) { return; }
@@ -186,6 +282,7 @@ async function load() {
   }
   for (const [id, row] of [...rows]) if (!ids.has(id)) { row.remove(); rows.delete(id); }
   renderPager(pages, all.length);
+  } finally { spin.classList.remove('on'); }
 }
 
 function renderPager(pages, total) {
@@ -233,6 +330,8 @@ function createRow(n) {
   $('.act', row).onclick = () => requestTranscribe(n.id, row);
   $('.tgl', row).onclick = () => toggleTx(n.id, row);
   $('.del', row).onclick = () => confirmDelete(n.id, $('.title', row).textContent || n.title);
+  $('.title', row).title = 'Click to rename';
+  $('.title', row).onclick = () => openRename(n.id, $('.title', row).textContent || '');
   // highlight the tile being played; only one plays at a time
   const au = $('audio', row);
   au.addEventListener('play', () => {
@@ -273,12 +372,106 @@ function requestTranscribe(id, row) {
     transcribe(id);
 }
 
+let cfgResolve = null;
+function updateProvUI() {
+  const local = $('#provlocal').checked;
+  $('#urlrow').style.display = local ? '' : 'none';
+  $('#keylbl').textContent = local ? 'API key (optional)' : 'OpenAI API key';
+}
+function fillConfig(c) {
+  const isLocal = !!c.url && !/api\.openai\.com/.test(c.url);
+  $('#provoa').checked = !isLocal;
+  $('#provlocal').checked = isLocal;
+  $('#cfgurl').value = isLocal ? c.url : '';
+  $('#cfgkey').value = '';
+  $('#cfgsleep').value = (c.sleep_s != null ? c.sleep_s : 15);
+  $('#cfghold').value = (c.hold_s != null ? c.hold_s : 3);
+  $('#cfgscroll').value = (c.scroll != null ? c.scroll : 1);
+  $('#cfgscroll').max = c.scroll_max || 5;
+  const sel = $('#cfgname'); sel.innerHTML = '';
+  (c.name_examples || []).forEach((s, i) => {
+    const o = document.createElement('option'); o.value = i + 1; o.textContent = s; sel.appendChild(o);
+  });
+  sel.value = (c.name_fmt != null ? c.name_fmt : 1);
+  $('#cfgdisk').checked = !!c.disk;
+  $('.cfgnow').textContent = !c.url ? 'Not configured yet.'
+    : 'Current: ' + (isLocal ? ('Local — ' + c.url) : 'OpenAI')
+      + ' · key ' + (c.has_key ? 'saved' : 'not set');
+  $('.cfghint').textContent = c.has_key ? 'A key is saved — leave blank to keep it.' : '';
+  updateProvUI();
+}
+function openConfigModal() {
+  // Open immediately; fill from the device asynchronously (don't block the UI).
+  $('.cfgnow').textContent = 'Loading…';
+  $('#cfgmodal').classList.add('open');
+  fetch('/api/config').then(r => r.json()).then(fillConfig).catch(() => {});
+  return new Promise(res => { cfgResolve = res; });
+}
+function closeConfig(v) {
+  $('#cfgmodal').classList.remove('open');
+  if (cfgResolve) { cfgResolve(v); cfgResolve = null; }
+}
+async function saveConfig() {
+  const local = $('#provlocal').checked;
+  const url = local ? $('#cfgurl').value.trim() : ''; // blank => OpenAI default on device
+  if (local && !url) { notice('Missing URL', 'Enter the local server URL.'); return; }
+  const key = $('#cfgkey').value;
+  const body = { url };
+  if (key) body.key = key; // blank = keep the existing key
+  const sleep_s = parseInt($('#cfgsleep').value, 10);
+  const hold_s = parseInt($('#cfghold').value, 10);
+  if (!Number.isNaN(sleep_s)) body.sleep_s = sleep_s;
+  if (!Number.isNaN(hold_s)) body.hold_s = hold_s;
+  const scroll = parseInt($('#cfgscroll').value, 10);
+  const name_fmt = parseInt($('#cfgname').value, 10);
+  if (!Number.isNaN(scroll)) body.scroll = scroll;
+  if (!Number.isNaN(name_fmt)) body.name_fmt = name_fmt;
+  body.disk = $('#cfgdisk').checked;
+  const r = await fetch('/api/config', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) { notice('Could not save settings', await r.text()); return; }
+  loadInfo();
+  closeConfig(true);
+}
+async function clearConfig() {
+  await fetch('/api/config', { method: 'DELETE' });
+  loadInfo();
+  closeConfig(false);
+}
+
+let rnId = null;
+function openRename(id, cur) {
+  rnId = id;
+  $('#rnname').value = cur || '';
+  $('#renamemodal').classList.add('open');
+  setTimeout(() => $('#rnname').focus(), 50);
+}
+function closeRename() { rnId = null; $('#renamemodal').classList.remove('open'); }
+async function saveRename() {
+  if (!rnId) return;
+  const name = $('#rnname').value.trim().slice(0, 100);
+  const r = await fetch('/api/notes/' + rnId, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  if (!r.ok) { notice('Rename failed', await r.text()); return; }
+  closeRename();
+  rows.clear(); $('#list').innerHTML = ''; // filenames changed -> rebuild rows
+  load();
+}
+
 async function transcribe(id) {
   busy.add(id);
   const row = rows.get(id);
   if (row) { row.classList.add('busy'); const a = $('.act', row); if (a) a.disabled = true; }
   try {
-    const r = await fetch('/api/transcribe/' + id, { method:'POST' });
+    let r = await fetch('/api/transcribe/' + id, { method:'POST' });
+    if (r.status === 428) { // device needs a transcription service configured
+      if (await openConfigModal()) r = await fetch('/api/transcribe/' + id, { method:'POST' });
+      else return;
+    }
     if (!r.ok) notice('Transcription failed', await r.text());
     else { open.add(id); if (row) row.dataset.txLoaded = ''; }
   } catch (e) { notice('Transcription error', String(e)); }
@@ -395,13 +588,29 @@ $('#modal .mdel').onclick = doDelete;
 $('#modal .mcancel').onclick = closeModal;
 $('#modal').onclick = (e) => { if (e.target.id === 'modal') closeModal(); };
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { closeModal(); closeRe(); $('#notice').classList.remove('open'); }
+  if (e.key === 'Escape') { closeModal(); closeRe(); closeConfig(false); closeRename(); $('#notice').classList.remove('open'); }
 });
 
-fetch('/api/info').then(r=>r.json()).then(i=>{
-  $('#engine').textContent = 'engine: ' + i.engine;
-  if (i.version) $('#ver').textContent = 'v' + i.version;
-}).catch(()=>{});
+// Transcription-settings modal wiring.
+$('#cfgbtn').onclick = () => openConfigModal();
+$('#provoa').onchange = updateProvUI;
+$('#provlocal').onchange = updateProvUI;
+$('#cfgmodal .csave').onclick = saveConfig;
+$('#cfgmodal .cclear').onclick = clearConfig;
+$('#cfgmodal .ccancel').onclick = () => closeConfig(false);
+$('#cfgmodal').onclick = (e) => { if (e.target.id === 'cfgmodal') closeConfig(false); };
+$('#renamemodal .rnsave').onclick = saveRename;
+$('#renamemodal .rncancel').onclick = closeRename;
+$('#renamemodal').onclick = (e) => { if (e.target.id === 'renamemodal') closeRename(); };
+$('#rnname').addEventListener('keydown', e => { if (e.key === 'Enter') saveRename(); });
+
+function loadInfo() {
+  fetch('/api/info').then(r=>r.json()).then(i=>{
+    $('#engine').textContent = 'engine: ' + i.engine;
+    if (i.version) $('#ver').textContent = 'v' + i.version;
+  }).catch(()=>{});
+}
+loadInfo();
 load();
 setInterval(load, 4000);
 </script>

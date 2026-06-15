@@ -1,9 +1,10 @@
 # ARCHITECTURE
 
 Sapiens Note is an **offline-first**, personal voice-note app. You capture ideas
-by voice; an AI engine turns them into text you can read and search. It runs as
-two desktop **simulators** of a 1.54" e-ink voice recorder — both built from one
-shared C++ core — plus a local **web dashboard** that does the transcription.
+by voice; an AI engine turns them into text you can read and search. The same
+shared C++ core runs on the **device firmware** (ESP32-S3 + e-paper) and on two
+desktop **simulators** of that 1.54" e-ink recorder — plus a local **web
+dashboard** that does the transcription (and which the device can serve itself).
 
 It is intentionally **personal, not enterprise**: a single user, all data local,
 no accounts or multi-tenancy.
@@ -13,19 +14,20 @@ no accounts or multi-tenancy.
 ## Components
 
 ```text
-  ┌───────────────────┐    ┌─────────────────────┐
-  │ Simulator (1-bit) │    │ Simulator (LVGL 9)  │
-  │ sapiens-sim       │    │ sapiens-sim-lvgl    │
-  │ SDL2 + Canvas     │    │ SDL2 + LVGL widgets │
-  └───────────────────┘    └─────────────────────┘
-            └─────────────┬───────────┘
-┌─────────────────────────┴─────────────────────────┐
+  ┌──────────────────┐  ┌───────────────────┐  ┌─────────────────────┐
+  │ Device firmware  │  │ Simulator (1-bit) │  │ Simulator (LVGL 9)  │
+  │ ESP-IDF (S3)     │  │ sapiens-sim       │  │ sapiens-sim-lvgl    │
+  │ e-paper HAL + SD │  │ SDL2 + Canvas     │  │ SDL2 + LVGL widgets │
+  └──────────────────┘  └───────────────────┘  └─────────────────────┘
+            └──────────────────┬──────────────────┘
+┌──────────────────────────────┴────────────────────┐
 │                  Shared C++ core                  │
 │ domain · state machine · navigation · audio · HAL │
 └───────────────────────────────────────────────────┘
                           │
                           ▼
-SQLite   ~/.sapiensnote-sim/sapiensnote.db  +  audio/*.wav
+Desktop: SQLite  ~/.sapiensnote-sim/sapiensnote.db  +  audio/*.wav
+Device:  /sdcard/sapiensnote/notes.json            +  audio/*.wav
                           ▲
                           │  same DB
        ┌──────────────────┴─────────────────┐
@@ -64,6 +66,17 @@ download the transcript. Transcription runs through a pluggable engine —
 through the core, so it immediately shows up in the simulators. See
 [ADR-0003](ADR/ADR-0003%20%E2%80%94%20Pluggable%20Transcription%20Engine).
 
+### The device firmware
+The ESP-IDF firmware (ESP32-S3 + 200×200 e-paper) is a first-class client: it
+links the **same** core and the **same** portable 1-bit renderer the
+`sapiens-sim` build uses, behind an **ESP-IDF HAL** (e-paper display, FT6336 touch
++ two buttons, ES8311 audio, microSD, PCF85063 RTC, Wi-Fi, power). On-device,
+notes persist as `notes.json` + WAVs on the SD card (not SQLite), and the RTC
+gives real timestamps (synced over Wi-Fi via SNTP). The firmware can also **serve
+the same dashboard on-device** (Wi-Fi captive portal → web UI) and relay
+transcription to an OpenAI-compatible endpoint. See
+[../firmware/README.md](../firmware/README.md) and [HARDWARE.md](HARDWARE.md).
+
 ---
 
 ## Data flow
@@ -81,9 +94,11 @@ Open sapiens-web → tap Transcribe on a recording
    → written back via the core (apply_transcription)
    → the note shows the full transcript in the simulators
 ```
-An e-ink MCU can't run speech recognition itself, so transcription is
-**off-device** — here, the local web dashboard does it
-([ADR-0004](ADR/ADR-0004%20%E2%80%94%20Off-Device%20Transcription)).
+An e-ink MCU can't run speech recognition itself, so the audio is always sent to
+an engine elsewhere ([ADR-0004](ADR/ADR-0004%20%E2%80%94%20Off-Device%20Transcription)).
+That engine can be driven from the desktop `sapiens-web` **or** from the
+**on-device** dashboard, which relays the WAV to an OpenAI-compatible endpoint and
+writes the transcript back beside the recording.
 
 ### Shared storage
 The simulators and the web dashboard all open the same WAL-mode SQLite database,

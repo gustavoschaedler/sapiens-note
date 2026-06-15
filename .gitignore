@@ -22,6 +22,17 @@ Testing/
 .idea/
 compile_commands.json
 
+# Tooling caches (clangd index, ccache, etc.)
+.cache/
+**/.cache/
+
+# ESP-IDF component manager (fetched deps + lockfile)
+**/managed_components/
+**/dependencies.lock
+
+# Generated at build time (host-clock seed written into the firmware for the RTC)
+firmware/main/hal/BuildClock.h
+
 # Render dumps / scratch output (the committed UI images live in assets/)
 /out/
 *.ppm

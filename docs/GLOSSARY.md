@@ -4,9 +4,10 @@ Shared vocabulary for Sapiens Note. Keep these terms consistent across all docs.
 
 | Term | Meaning |
 |---|---|
-| **Device** | The 1.54" e-ink voice recorder the simulators emulate (Waveshare ESP32-S3 1.54" e-Paper). |
+| **Device** | The 1.54" e-ink voice recorder — an ESP32-S3 + 200×200 e-paper board (`S3_ePaper_1_54`, SSD1681; same hardware as Pala Note). Runs the working ESP-IDF firmware. See [HARDWARE.md](HARDWARE.md) + [../firmware/README.md](../firmware/README.md). |
+| **Firmware** | The ESP-IDF build that runs on the device — reuses the shared core + the portable 1-bit renderer through an ESP-IDF HAL (display, touch + buttons, audio, SD, RTC, Wi-Fi, power). |
 | **Simulator** | The desktop app (macOS/Linux/Windows) running the UI/logic via SDL2. Two builds: a 1-bit `Canvas` one and an LVGL 9 one. |
-| **Client** | Anything that links the shared core (either simulator). |
+| **Client** | Anything that links the shared core (the firmware or either simulator). |
 | **Shared core** | The portable C++ library every client links (domain, app state, navigation, audio, sync client). See [SHARED_CORE.md](SHARED_CORE.md). |
 | **HAL** | Hardware Abstraction Layer — the interfaces (storage, audio, clock, log) the core calls; each client supplies an implementation. |
 | **Web dashboard** | `sapiens-web` — a local web page that plays, downloads, and transcribes recordings from the same SQLite DB. |

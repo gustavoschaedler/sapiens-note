@@ -286,6 +286,40 @@ public:
         draw_text_clip(x - off + period, y, text, color, x, x + w, s);
     }
 
+    // Med-font marquee (mirrors draw_text_scroll but with the ~21px med font),
+    // for the bigger note-list rows whose date-time titles often overflow.
+    int draw_glyph_clip_med(int x, int y, char c, std::uint8_t color, int clip_x0,
+                            int clip_x1) {
+        const auto& g = fontmed::glyph(static_cast<unsigned char>(c));
+        const std::uint8_t target = color ? 255 : 0;
+        for (int r = 0; r < fontmed::CELL_H; ++r)
+            for (int col = 0; col < fontmed::CELL_W; ++col) {
+                int a = g.cov[r * fontmed::CELL_W + col];
+                if (!a) continue;
+                int px = x + col;
+                if (px < clip_x0 || px >= clip_x1) continue;
+                blend(px, y + r, target, a);
+            }
+        return g.advance;
+    }
+    void draw_text_clip_med(int x, int y, const std::string& text, std::uint8_t color,
+                            int clip_x0, int clip_x1) {
+        int cx = x;
+        for (char c : text) cx += draw_glyph_clip_med(cx, y, c, color, clip_x0, clip_x1);
+    }
+    void draw_text_scroll_med(int x, int y, int w, const std::string& text,
+                              std::uint32_t now_ms, int div = 16,
+                              std::uint8_t color = 1) {
+        int tw = text_width_med(text);
+        if (tw <= w) { draw_text_med(x, y, text, color); return; }
+        if (div < 1) div = 1;
+        const int gap = 28;
+        const int period = tw + gap;
+        int off = static_cast<int>((now_ms / div) % static_cast<std::uint32_t>(period));
+        draw_text_clip_med(x - off, y, text, color, x, x + w);
+        draw_text_clip_med(x - off + period, y, text, color, x, x + w);
+    }
+
     static int text_width(const std::string& text, int s = 1) {
         int w = 0;
         for (char c : text) w += font::glyph(static_cast<unsigned char>(c)).advance * s;

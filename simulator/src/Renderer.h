@@ -24,10 +24,11 @@ inline std::string display_title(const sapiens::Note& n) {
 namespace layout {
 constexpr int kTitleH = 18;
 constexpr int kSubH = 38;          // subheader (total / page) bottom line
-constexpr int kRowTop = 40;
-constexpr int kRowH = 23;          // 5 rows
-constexpr int kRows = 5;
-constexpr int kBarY = 159, kBarH = 32; // bottom control bar (below the last row)
+constexpr int kRowTop = 22;        // rows start right below the shared title bar
+constexpr int kRowH = 40;          // 3 big rows
+constexpr int kRows = 3;
+constexpr int kBarY = 146, kBarH = 30; // bottom control bar (REC + up/down)
+constexpr int kListFootY = 182;        // total-notes/page line, centered at the foot
 constexpr int kSetX = 182, kSetY = 3, kSetW = 14, kSetH = 12;
 // bottom controls
 constexpr int kBtnY = 168, kBtnH = 26;
@@ -39,9 +40,8 @@ constexpr int kStopX = 24, kStopY = 138, kStopW = 152, kStopH = 50;
 constexpr int kPlayX = 8, kPlayY = 168, kPlayW = 92, kPlayH = 26;
 // player
 constexpr int kPbX = 10, kPbY = 104, kPbW = 180, kPbH = 8;
-constexpr int kPPx = 14, kPPy = 124, kPPw = 84, kPPh = 34;
-constexpr int kStX = 102, kStY = 124, kStW = 84, kStH = 34;
-constexpr int kBkX = 70, kBkY = 168, kBkW = 60, kBkH = 24;
+constexpr int kPPx = 8, kPPy = 128, kPPw = 90, kPPh = 52;
+constexpr int kStX = 102, kStY = 128, kStW = 90, kStH = 52;
 // settings scroll-speed slider track (same line as the "Speed" label)
 constexpr int kSldX = 64, kSldY = 56, kSldW = 124, kSldH = 8;
 constexpr int kSldHitY = 48, kSldHitH = 24;
@@ -57,7 +57,7 @@ struct Hit {
                       PlayPause, Stop, Delete, ConfirmDelete, CancelDelete,
                       PageUp, PageDown, SpeedDown, SpeedUp, FormatPrev,
                       FormatNext, GoNotes, GoSync, GoTags, SyncNow,
-                      ToggleScroll } type{Type::None};
+                      ToggleScroll, SleepDown, SleepUp } type{Type::None};
     std::string note_id;
     int value{-1}; // for ScrollSpeed
     int rx{-1}, ry{-1}, rw{-1}, rh{-1}; // button bounds (for the click-invert flash)
@@ -65,7 +65,7 @@ struct Hit {
 };
 
 inline std::string mmss(int s) {
-    char b[8];
+    char b[16];
     std::snprintf(b, sizeof(b), "%02d:%02d", s / 60, s % 60);
     return b;
 }
@@ -73,7 +73,7 @@ inline std::string mmss(int s) {
 class Renderer {
 public:
     void render(Canvas& c, const sapiens::AppController& app, int battery_pct,
-                std::uint32_t now_ms = 0) {
+                std::uint32_t now_ms = 0, int sleep_secs = -1) {
         now_ = now_ms;
         // marquee speed (1..4): 1 = slow (big divisor), 4 = fast (small divisor),
         // recalibrated slower so even the max isn't too fast.
@@ -81,18 +81,14 @@ public:
         if (scroll_div_ < 10) scroll_div_ = 10;
         c.clear(0);
         if (app.screen() == sapiens::Screen::Splash) { draw_splash(c, app); return; }
-        // The note list owns its whole header (tall Menu button + battery + sep).
-        if (app.screen() == sapiens::Screen::NoteList) {
-            draw_note_list(c, app, battery_pct);
-            return;
-        }
+        // Every screen shares the same header (brand + battery %).
         draw_title_bar(c, battery_pct);
         switch (app.screen()) {
             case sapiens::Screen::Home: draw_home(c, app); break;
-            case sapiens::Screen::NoteList: break; // handled above
+            case sapiens::Screen::NoteList: draw_note_list(c, app); break;
             case sapiens::Screen::Recording: draw_recording(c, app); break;
             case sapiens::Screen::NoteDetail: draw_detail(c, app); break;
-            case sapiens::Screen::Settings: draw_settings(c, app); break;
+            case sapiens::Screen::Settings: draw_settings(c, app, sleep_secs); break;
             case sapiens::Screen::Player: draw_player(c, app); break;
             case sapiens::Screen::ConfirmDelete: draw_confirm(c, app); break;
             case sapiens::Screen::Sync: draw_sync(c, app); break;
@@ -126,29 +122,26 @@ public:
                 if (auto h = B(Hit::Type::Settings, kHmRX, kHmBY, kHmW, kHmH); h.type != Hit::Type::None) return h;
                 return {};
             case sapiens::Screen::Sync:
-                if (auto h = B(Hit::Type::SyncNow, 56, 120, 88, 30); h.type != Hit::Type::None) return h;
-                if (auto h = B(Hit::Type::Back, 70, 160, 60, 30); h.type != Hit::Type::None) return h;
-                return {};
+                return B(Hit::Type::SyncNow, 30, 124, 140, 48);
             case sapiens::Screen::Tags:
-                return B(Hit::Type::Back, 70, 160, 60, 30);
+                return {};
             case sapiens::Screen::Recording:
                 return B(Hit::Type::Record, kStopX, kStopY, kStopW, kStopH);
             case sapiens::Screen::Player:
                 if (auto h = B(Hit::Type::PlayPause, kPPx, kPPy, kPPw, kPPh); h.type != Hit::Type::None) return h;
                 if (auto h = B(Hit::Type::Stop, kStX, kStY, kStW, kStH); h.type != Hit::Type::None) return h;
-                if (auto h = B(Hit::Type::Back, kBkX, kBkY, kBkW, kBkH); h.type != Hit::Type::None) return h;
                 return {};
             case sapiens::Screen::NoteDetail: {
                 const auto& sel = app.selected_note();
                 bool audio = sel && !sel->audio_key.empty();
-                const int by = 156, bh = 38;
+                // Big, edge-to-edge action row so finger taps land reliably on the
+                // small e-paper (was 56px buttons inset 8px; taps kept missing).
+                const int by = 152, bh = 47;
                 if (audio) {
-                    if (auto h = B(Hit::Type::OpenPlayer, 8, by, 56, bh); h.type != Hit::Type::None) return h;
-                    if (auto h = B(Hit::Type::Delete, 72, by, 56, bh); h.type != Hit::Type::None) return h;
-                    if (auto h = B(Hit::Type::Back, 136, by, 56, bh); h.type != Hit::Type::None) return h;
+                    if (auto h = B(Hit::Type::OpenPlayer, 0, by, 98, bh); h.type != Hit::Type::None) return h;
+                    if (auto h = B(Hit::Type::Delete, 102, by, 98, bh); h.type != Hit::Type::None) return h;
                 } else {
-                    if (auto h = B(Hit::Type::Delete, 8, by, 90, bh); h.type != Hit::Type::None) return h;
-                    if (auto h = B(Hit::Type::Back, 104, by, 90, bh); h.type != Hit::Type::None) return h;
+                    if (auto h = B(Hit::Type::Delete, 0, by, 200, bh); h.type != Hit::Type::None) return h;
                 }
                 // Tap the transcript area -> pause/resume the auto-scroll.
                 if (in(x, y, 6, 44, Canvas::W - 12, 110)) return {Hit::Type::ToggleScroll};
@@ -158,17 +151,18 @@ public:
                 if (auto h = B(Hit::Type::ConfirmDelete, dlg::kDelX, dlg::kDelY, dlg::kDelW, dlg::kDelH); h.type != Hit::Type::None) return h;
                 return B(Hit::Type::CancelDelete, dlg::kCanX, dlg::kCanY, dlg::kCanW, dlg::kCanH);
             case sapiens::Screen::Settings: {
-                if (auto h = B(Hit::Type::SpeedDown, 110, 46, 26, 26); h.type != Hit::Type::None) return h;
-                if (auto h = B(Hit::Type::SpeedUp, 168, 46, 26, 26); h.type != Hit::Type::None) return h;
-                if (auto h = B(Hit::Type::FormatPrev, 110, 94, 26, 26); h.type != Hit::Type::None) return h;
-                if (auto h = B(Hit::Type::FormatNext, 168, 94, 26, 26); h.type != Hit::Type::None) return h;
-                return B(Hit::Type::Back, 72, 160, 56, 30);
+                if (auto h = B(Hit::Type::SpeedDown, 104, 52, 34, 34); h.type != Hit::Type::None) return h;
+                if (auto h = B(Hit::Type::SpeedUp, 160, 52, 34, 34); h.type != Hit::Type::None) return h;
+                if (auto h = B(Hit::Type::FormatPrev, 104, 100, 34, 34); h.type != Hit::Type::None) return h;
+                if (auto h = B(Hit::Type::FormatNext, 160, 100, 34, 34); h.type != Hit::Type::None) return h;
+                if (auto h = B(Hit::Type::SleepDown, 104, 148, 34, 34); h.type != Hit::Type::None) return h;
+                if (auto h = B(Hit::Type::SleepUp, 160, 148, 34, 34); h.type != Hit::Type::None) return h;
+                return {};
             }
             case sapiens::Screen::NoteList:
             default: break;
         }
-        // Note list
-        if (auto h = B(Hit::Type::Back, kListMenuX, kListMenuY, kListMenuW, kListMenuH); h.type != Hit::Type::None) return h; // "Menu" -> Home
+        // Note list (no on-screen Menu button — Back is the bottom physical button)
         bool paged = app.page_count() > 1;
         if (paged) {
             if (auto h = B(Hit::Type::PageUp, 6, kBarY, 46, kBarH); h.type != Hit::Type::None) return h;
@@ -181,6 +175,77 @@ public:
             if (in(x, y, 0, kRowTop + i * kRowH, Canvas::W, kRowH))
                 return {Hit::Type::OpenNote, notes[i].id};
         return {};
+    }
+
+    // Ordered, focusable on-screen targets for physical 2-button navigation.
+    // Mirrors the hittest rectangles; each carries bounds so the caller can draw a
+    // focus ring and "activate" via apply_hit. Back is handled by the Back button,
+    // so it's intentionally not listed here.
+    std::vector<Hit> focus_targets(const sapiens::AppController& app) const {
+        using namespace layout;
+        std::vector<Hit> t;
+        auto add = [&](Hit::Type ty, int x, int y, int w, int h,
+                       std::string id = "") {
+            Hit hh;
+            hh.type = ty;
+            hh.note_id = std::move(id);
+            hh.rx = x; hh.ry = y; hh.rw = w; hh.rh = h;
+            t.push_back(hh);
+        };
+        switch (app.screen()) {
+            case sapiens::Screen::Home:
+                add(Hit::Type::GoNotes, kHmLX, kHmTY, kHmW, kHmH);
+                add(Hit::Type::GoSync, kHmRX, kHmTY, kHmW, kHmH);
+                add(Hit::Type::GoTags, kHmLX, kHmBY, kHmW, kHmH);
+                add(Hit::Type::Settings, kHmRX, kHmBY, kHmW, kHmH);
+                break;
+            case sapiens::Screen::NoteList: {
+                auto notes = app.page_notes();
+                for (int i = 0; i < (int)notes.size(); ++i)
+                    add(Hit::Type::OpenNote, 0, kRowTop + i * kRowH, Canvas::W,
+                        kRowH, notes[i].id);
+                bool paged = app.page_count() > 1;
+                if (paged) add(Hit::Type::PageUp, 6, kBarY, 46, kBarH);
+                int rx = paged ? 64 : 56, rw = paged ? 72 : 88;
+                add(Hit::Type::Record, rx, kBarY, rw, kBarH);
+                if (paged) add(Hit::Type::PageDown, 142, kBarY, 46, kBarH);
+                break;
+            }
+            case sapiens::Screen::NoteDetail: {
+                const auto& sel = app.selected_note();
+                bool audio = sel && !sel->audio_key.empty();
+                const int by = 152, bh = 47;
+                if (audio) {
+                    add(Hit::Type::OpenPlayer, 0, by, 98, bh);
+                    add(Hit::Type::Delete, 102, by, 98, bh);
+                } else {
+                    add(Hit::Type::Delete, 0, by, 200, bh);
+                }
+                break;
+            }
+            case sapiens::Screen::Player:
+                add(Hit::Type::PlayPause, kPPx, kPPy, kPPw, kPPh);
+                add(Hit::Type::Stop, kStX, kStY, kStW, kStH);
+                break;
+            case sapiens::Screen::Settings:
+                add(Hit::Type::SpeedDown, 104, 52, 34, 34);
+                add(Hit::Type::SpeedUp, 160, 52, 34, 34);
+                add(Hit::Type::FormatPrev, 104, 100, 34, 34);
+                add(Hit::Type::FormatNext, 160, 100, 34, 34);
+                add(Hit::Type::SleepDown, 104, 148, 34, 34);
+                add(Hit::Type::SleepUp, 160, 148, 34, 34);
+                break;
+            case sapiens::Screen::Sync:
+                add(Hit::Type::SyncNow, 30, 124, 140, 48);
+                break;
+            case sapiens::Screen::ConfirmDelete:
+                add(Hit::Type::ConfirmDelete, dlg::kDelX, dlg::kDelY, dlg::kDelW, dlg::kDelH);
+                add(Hit::Type::CancelDelete, dlg::kCanX, dlg::kCanY, dlg::kCanW, dlg::kCanH);
+                break;
+            default:
+                break;
+        }
+        return t;
     }
 
 private:
@@ -280,12 +345,13 @@ private:
     }
 
     void draw_sync(Canvas& c, const sapiens::AppController&) {
-        c.draw_text_big(6, 26, "Sync", 1);
-        c.draw_text(6, 62, "Account: not signed in", 1);
-        c.draw_text(6, 82, "Status: offline", 1);
-        c.draw_text(6, 102, "Last sync: never", 1);
-        button(c, 56, 120, 88, 30, "Sync now");
-        button(c, 70, 160, 60, 30, "Back");
+        c.draw_text_med(6, 22, "Sync", 1);
+        c.hline(6, 44, Canvas::W - 12, 1);
+        c.draw_text(8, 58, "Connect to Wi-Fi to open", 1);
+        c.draw_text(8, 76, "the web dashboard and", 1);
+        c.draw_text(8, 94, "sync the clock.", 1);
+        big_btn(c, 30, 124, 140, 48, "Connect");
+        // No Back button — the bottom physical button (double-click) goes back.
     }
 
     void draw_tags(Canvas& c, const sapiens::AppController& app) {
@@ -295,58 +361,41 @@ private:
             c.draw_text(6, 64, "No tags yet", 1);
         } else {
             int y = 58;
-            for (int i = 0; i < (int)tags.size() && i < 5; ++i, y += 20)
+            for (int i = 0; i < (int)tags.size() && i < 6; ++i, y += 22)
                 c.draw_text(6, y, "# " + tags[i].name, 1);
         }
-        button(c, 70, 160, 60, 30, "Back");
+        // No Back button — the bottom physical button (double-click) goes back.
     }
 
-    void draw_note_list(Canvas& c, const sapiens::AppController& app, int battery) {
-        // Custom 2-line header: brand (line 1) + counter/pagination (line 2) on
-        // the left; on the right a tall "Menu" button, the battery before it, and
-        // a vertical separator line.
-        c.draw_text(4, 1, "Sapiens Note", 1);
-        std::string sub = std::to_string(app.total_notes()) + " notes";
-        if (app.page_count() > 1)
-            sub += "   " + std::to_string(app.list_page() + 1) + "/" +
-                   std::to_string(app.page_count());
-        c.draw_text(6, 22, sub, 1);
-        // tall Menu button on the right; battery icon above its percentage,
-        // both right-aligned just before the button (no separator line).
-        button(c, kListMenuX, kListMenuY, kListMenuW, kListMenuH, "Menu");
-        if (battery >= 0) {
-            int rightEdge = kListMenuX - 6;
-            std::string b = std::to_string(battery) + "%";
-            c.draw_text(rightEdge - Canvas::text_width(b), 20, b, 1);
-            battery_icon(c, rightEdge - 22 - 2, 4, 22, 10, battery);
-        }
-        c.hline(0, layout::kSubH, Canvas::W, 1);
-
+    void draw_note_list(Canvas& c, const sapiens::AppController& app) {
+        // Shared header (brand + battery) is drawn by render(); this draws the rows,
+        // the bottom REC/up/down bar, and a centered total/page line at the foot.
         auto notes = app.page_notes();
         if (notes.empty()) {
-            c.draw_text(40, 96, "No notes yet", 1);
-            c.draw_text(34, 114, "Tap Rec below", 1);
+            c.draw_text(48, 64, "No notes yet", 1);
+            c.draw_text(30, 84, "Hold the top button", 1);
+            c.draw_text(64, 100, "to record", 1);
         }
         for (int i = 0; i < (int)notes.size(); ++i) {
             const auto& n = notes[i];
             int ry = layout::kRowTop + i * layout::kRowH;
             int mid = ry + layout::kRowH / 2;
-            int ty = cy_for(ry, layout::kRowH);
-            // per-row counter: 0001, 0002, ...
-            char num[8];
-            std::snprintf(num, sizeof(num), "%04d", app.page_first_index() + i + 1);
-            c.draw_text(6, ty, num, 1);
-            if (n.status != sapiens::NoteStatus::Transcribed) c.fill_disc(44, mid, 3, 1);
-            if (n.favorite) c.fill_diamond(Canvas::W - 12, mid, 4, 1);
-            if (!n.audio_key.empty()) {
-                int px = Canvas::W - (n.favorite ? 30 : 14);
-                for (int k = 0; k < 6; ++k)
-                    for (int j = -k; j <= k; ++j) c.set(px + (5 - k), mid + j, 1);
+            int ty = ry + (layout::kRowH - Canvas::line_height_med()) / 2;
+            // Right-aligned status markers; the title (big med font) takes the rest.
+            int mx = Canvas::W - 12;
+            bool marked = false;
+            if (n.favorite) { c.fill_diamond(mx, mid, 6, 1); mx -= 18; marked = true; }
+            if (!n.audio_key.empty()) { // play/audio triangle
+                for (int k = 0; k < 8; ++k)
+                    for (int j = -k; j <= k; ++j) c.set(mx - 7 + (7 - k), mid + j, 1);
+                mx -= 18; marked = true;
             }
-            int right_pad = (n.favorite ? 22 : 8) + (n.audio_key.empty() ? 0 : 14);
-            int tx = 52;
-            c.draw_text_scroll(tx, ty, Canvas::W - tx - right_pad, display_title(n),
-                               now_, scroll_div_, 1);
+            if (n.status != sapiens::NoteStatus::Transcribed) {
+                c.fill_disc(mx, mid, 5, 1); mx -= 16; marked = true;
+            }
+            int title_right = marked ? mx + 8 : Canvas::W - 8;
+            c.draw_text_scroll_med(8, ty, title_right - 8, display_title(n),
+                                   now_, scroll_div_, 1);
             c.hline(4, ry + layout::kRowH - 1, Canvas::W - 8, 1);
         }
 
@@ -360,18 +409,29 @@ private:
         } else {
             big_btn(c, 56, kBarY, 88, kBarH, "REC");
         }
+        // Footer: total notes + page, centered below the controls.
+        std::string foot = std::to_string(app.total_notes()) +
+                           (app.total_notes() == 1 ? " note" : " notes");
+        if (app.page_count() > 1)
+            foot += "  -  page " + std::to_string(app.list_page() + 1) + "/" +
+                    std::to_string(app.page_count());
+        c.draw_text((Canvas::W - Canvas::text_width(foot)) / 2, kListFootY, foot, 1);
     }
 
     void draw_recording(Canvas& c, const sapiens::AppController& app) {
         using namespace layout;
-        c.fill_rect(kRecBandX, kRecBandY, kRecBandW, kRecBandH, 1);
-        std::string rec = "REC";
-        c.draw_text_big((Canvas::W - Canvas::text_width_big(rec)) / 2,
-                        kRecBandY + (kRecBandH - Canvas::line_height_big()) / 2, rec, 0);
-        // big recording timer
+        // Rounded "REC" pill with a blinking dot (white on the black pill), high up.
+        const bool blink = ((now_ / 600) % 2) == 0;
+        const int pw = 124, ph = 34, px = (Canvas::W - pw) / 2, py = 24;
+        c.fill_round_rect(px, py, pw, ph, 1, 16);
+        if (blink) c.fill_disc(px + 24, py + ph / 2, 7, 0);
+        c.draw_text_big(px + 44, py + (ph - Canvas::line_height_big()) / 2, "REC", 0);
+        // Big elapsed timer, centered, with the hint spaced above the STOP button.
         std::string t = mmss(app.recording_elapsed_secs());
-        c.draw_text_huge((Canvas::W - Canvas::text_width_huge(t)) / 2, 86, t, 1);
-        big_btn(c, kStopX, kStopY, kStopW, kStopH, "STOP"); // big crisp Stop
+        c.draw_text_huge((Canvas::W - Canvas::text_width_huge(t)) / 2, 64, t, 1);
+        std::string hint = "Tap STOP to finish";
+        c.draw_text((Canvas::W - Canvas::text_width(hint)) / 2, 118, hint, 1);
+        big_btn(c, kStopX, kStopY, kStopW, kStopH, "STOP");
     }
 
     void draw_detail(Canvas& c, const sapiens::AppController& app) {
@@ -389,16 +449,14 @@ private:
                               sapiens::text::to_ascii(sel->transcript),
                               app.transcript_scroll_ms());
         }
-        // big icon-only actions: play | trash | back
-        const int by = 156, bh = 38;
+        // Big icon actions filling the width (no Back — bottom button goes back).
+        const int by = 152, bh = 47;
         bool audio = !sel->audio_key.empty();
         if (audio) {
-            ibtn(c, 8, by, 56, bh);   ic_play(c, 36, by + bh / 2, 18);
-            ibtn(c, 72, by, 56, bh);  ic_trash(c, 100, by + bh / 2, 16, 18);
-            button(c, 136, by, 56, bh, "Back");
+            ibtn(c, 0, by, 98, bh);    ic_play(c, 49, by + bh / 2, 22);
+            ibtn(c, 102, by, 98, bh);  ic_trash(c, 151, by + bh / 2, 18, 22);
         } else {
-            ibtn(c, 8, by, 90, bh);   ic_trash(c, 53, by + bh / 2, 16, 18);
-            button(c, 104, by, 90, bh, "Back");
+            ibtn(c, 0, by, 200, bh);   ic_trash(c, 100, by + bh / 2, 18, 22);
         }
     }
 
@@ -421,8 +479,8 @@ private:
         if (app.audio_playing()) ic_pause(c, kPPx + kPPw / 2, kPPy + kPPh / 2, 16);
         else ic_play(c, kPPx + kPPw / 2, kPPy + kPPh / 2, 16);
         ibtn(c, kStX, kStY, kStW, kStH);
-        ic_stop(c, kStX + kStW / 2, kStY + kStH / 2, 16);
-        button(c, kBkX, kBkY, kBkW, kBkH, "Back");
+        ic_stop(c, kStX + kStW / 2, kStY + kStH / 2, 18);
+        // No Back button — the bottom physical button (double-click) goes back.
     }
 
     // Small ‹ value › stepper placed beside a title. Buttons are text-sized.
@@ -434,15 +492,27 @@ private:
                     y + (26 - Canvas::line_height()) / 2, val, 1);
     }
 
-    void draw_settings(Canvas& c, const sapiens::AppController& app) {
-        c.draw_text(6, 50, "Scroll speed", 1);
-        small_stepper(c, 110, 46, std::to_string(app.scroll_speed()) + "/" +
-                                  std::to_string(app.scroll_speed_max()));
-        c.draw_text(6, 98, "Name format", 1);
-        small_stepper(c, 110, 94, std::to_string(app.name_format() + 1) + "/" +
-                                  std::to_string(app.name_format_count()));
-        c.draw_text(6, 128, Canvas::elide(app.name_format_preview(), Canvas::W - 12), 1);
-        button(c, 72, 160, 56, 30, "Back");
+    // Big touch-friendly stepper row: label left, [-] value [+] right. The minus/
+    // plus rects are (104,y,34,34) and (160,y,34,34) — keep in sync with the
+    // Settings hittest + focus_targets.
+    void touch_stepper(Canvas& c, int y, const std::string& label, const std::string& val) {
+        int ty = y + (34 - Canvas::line_height()) / 2;
+        c.draw_text(6, ty, label, 1);
+        ibtn(c, 104, y, 34, 34); c.tri_left(121, y + 17, 10, 13, 1);
+        ibtn(c, 160, y, 34, 34); c.tri_right(177, y + 17, 10, 13, 1);
+        c.draw_text(149 - Canvas::text_width(val) / 2, ty, val, 1);
+    }
+
+    void draw_settings(Canvas& c, const sapiens::AppController& app, int sleep_secs) {
+        c.draw_text_med(6, 22, "Settings", 1);
+        c.hline(6, 44, Canvas::W - 12, 1);
+        touch_stepper(c, 52, "Text scroll", std::to_string(app.scroll_speed()) + "/" +
+                                            std::to_string(app.scroll_speed_max()));
+        touch_stepper(c, 100, "Name format", std::to_string(app.name_format() + 1) + "/" +
+                                             std::to_string(app.name_format_count()));
+        touch_stepper(c, 148, "Sleep",
+                      sleep_secs <= 0 ? std::string("Off") : (std::to_string(sleep_secs) + "s"));
+        // No Back button — the bottom physical button (double-click) goes back.
     }
 
     void draw_confirm(Canvas& c, const sapiens::AppController& app) {
